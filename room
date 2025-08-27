@@ -1,0 +1,192 @@
+import pygame
+import sys
+import random
+
+# Initialize Pygame
+pygame.init()
+
+# Screen dimensions
+screen_width = 800
+screen_height = 600
+screen = pygame.display.set_mode((screen_width, screen_height))
+pygame.display.set_caption("Key and Door Game")
+
+# Load images
+player_image = pygame.image.load('player.png')
+key_image = pygame.image.load('key.png')
+locked_door_image = pygame.image.load('puzzle.png')
+unlocked_door_image = pygame.image.load('door_unlocked.png')
+enemy_image = pygame.image.load('enemy.png')
+power_up_image = pygame.image.load('power_up.png')
+
+# Scale images to appropriate sizes
+player_image = pygame.transform.scale(player_image, (30, 30))
+key_image = pygame.transform.scale(key_image, (30, 30))
+locked_door_image = pygame.transform.scale(locked_door_image, (60, 60))
+unlocked_door_image = pygame.transform.scale(unlocked_door_image, (60, 60))
+enemy_image = pygame.transform.scale(enemy_image, (30, 30))
+power_up_image = pygame.transform.scale(power_up_image, (20, 20))
+
+# Initial positions
+player_x, player_y = 30, 550  # Starting position of the player in the maze
+key_x, key_y = random.randint(100, 700), random.randint(100, 500)  # Random starting position for the key
+locked_door_x, locked_door_y = 680, 60  # Position of the locked door
+power_up_x, power_up_y = random.randint(100, 700), random.randint(100, 500)  # Random position for the power-up
+
+# Enemy patrol routes
+enemy_patrol_routes = [
+    [(400, 300), (200, 100), (600, 100), (400, 500)],  # First enemy route
+    [(600, 400), (100, 300), (600, 100), (200, 500)],  # Second enemy route
+    [(300, 500), (500, 500), (500, 300), (300, 300)],  # Third enemy route
+    [(100, 100), (200, 200), (400, 100), (200, 500)],  # Fourth enemy route
+    [(500, 200), (500, 400), (300, 400), (300, 200)],  # Fifth enemy route
+    [(200, 150), (600, 150), (600, 450), (200, 450)],  # Sixth enemy route
+    [(150, 150), (650, 150), (150, 450), (650, 450)],  # Seventh enemy route
+    [(100, 100), (700, 100), (700, 500), (100, 500)],  # Eighth enemy route
+    [(150, 550), (650, 550), (150, 100), (650, 100)],  # Ninth enemy route
+    [(250, 50), (600, 50), (250, 550), (600, 550)],    # Tenth enemy route
+    [(300, 100), (800, 500), (350, 650), (200, 500)],
+    [(350, 200), (400, 100), (450, 850), (250, 500)]
+]
+
+# Enemy initial positions
+enemies = [
+    {"x": random.randint(100, 700), "y": random.randint(100, 500), "target": 0, "speed": 3} for _ in range(10)
+]
+
+# Maze layout (increased complexity)
+barrier_boxes = [
+    # Borders
+    pygame.Rect(0, 0, 800, 20),  # Top
+    pygame.Rect(0, 580, 800, 20),  # Bottom
+    pygame.Rect(0, 0, 20, 600),  # Left
+    pygame.Rect(780, 0, 20, 600),  # Right
+    
+    # Internal maze walls (randomized with barriers)
+    pygame.Rect(20, 40, 100, 20),
+    pygame.Rect(100, 60, 20, 100),
+    pygame.Rect(40, 160, 100, 20),
+    pygame.Rect(140, 60, 20, 200),
+    pygame.Rect(160, 160, 100, 20),
+    pygame.Rect(200, 80, 200, 20),
+    pygame.Rect(180, 200, 100, 20),
+    pygame.Rect(300, 120, 20, 200),
+    pygame.Rect(320, 200, 100, 20),
+    pygame.Rect(420, 80, 20, 300),
+    pygame.Rect(160, 400, 100, 20),
+    pygame.Rect(200, 300, 20, 100),
+    pygame.Rect(100, 500, 300, 20),
+    pygame.Rect(300, 400, 20, 100),
+    pygame.Rect(400, 450, 20, 100),
+    pygame.Rect(460, 200, 100, 20),
+    pygame.Rect(500, 300, 100, 20),
+    pygame.Rect(500, 350, 20, 100),
+    pygame.Rect(550, 120, 20, 200),
+    pygame.Rect(600, 100, 100, 20),
+    pygame.Rect(660, 200, 120, 20),
+    pygame.Rect(700, 320, 20, 100),
+    pygame.Rect(550, 500, 200, 20),
+    pygame.Rect(660, 400, 20, 100)
+]
+
+# Movement speed
+speed = 5
+
+# Game state
+key_collected = False
+door_unlocked = False
+game_over = False
+well_done = False
+
+# Main game loop
+running = True
+while running:
+    screen.fill((0, 0, 0))  # Clear screen with black background
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+
+    if not game_over and not well_done:
+        # Movement controls for the player
+        keys = pygame.key.get_pressed()
+        old_player_x, old_player_y = player_x, player_y  # Save the previous position in case of collision
+        if keys[pygame.K_LEFT]:
+            player_x -= speed
+        if keys[pygame.K_RIGHT]:
+            player_x += speed
+        if keys[pygame.K_UP]:
+            player_y -= speed
+        if keys[pygame.K_DOWN]:
+            player_y += speed
+
+        # Ensure the player doesn't pass through the barrier boxes
+        player_rect = player_image.get_rect(topleft=(player_x, player_y))
+        for box in barrier_boxes:
+            if player_rect.colliderect(box):
+                player_x, player_y = old_player_x, old_player_y  # Revert to the old position if collision detected
+
+        # Check for collision between player and key
+        key_rect = key_image.get_rect(topleft=(key_x, key_y))
+        if player_rect.colliderect(key_rect):
+            key_collected = True
+
+        # Enemy movement
+        for i, enemy in enumerate(enemies):
+            enemy_target_x, enemy_target_y = enemy_patrol_routes[i][enemy["target"]]
+            if abs(enemy["x"] - enemy_target_x) < enemy["speed"] and abs(enemy["y"] - enemy_target_y) < enemy["speed"]:
+                enemy["target"] = (enemy["target"] + 1) % len(enemy_patrol_routes[i])  # Switch to next target point
+            else:
+                if enemy["x"] < enemy_target_x:
+                    enemy["x"] += enemy["speed"]
+                elif enemy["x"] > enemy_target_x:
+                    enemy["x"] -= enemy["speed"]
+                if enemy["y"] < enemy_target_y:
+                    enemy["y"] += enemy["speed"]
+                elif enemy["y"] > enemy_target_y:
+                    enemy["y"] -= enemy["speed"]
+
+            # Check for collision with the player (Game Over if hit)
+            enemy_rect = enemy_image.get_rect(topleft=(enemy["x"], enemy["y"]))
+            if player_rect.colliderect(enemy_rect):
+                game_over = True
+
+        # Player reaches the door
+        door_rect = locked_door_image.get_rect(topleft=(locked_door_x, locked_door_y))
+        if player_rect.colliderect(door_rect):
+            if key_collected:
+                door_unlocked = True
+                well_done = True
+
+        # Drawing the game objects
+        screen.blit(player_image, (player_x, player_y))
+        if not key_collected:
+            screen.blit(key_image, (key_x, key_y))
+
+        if door_unlocked:
+            screen.blit(unlocked_door_image, (locked_door_x, locked_door_y))  # Display unlocked door
+        else:
+            screen.blit(locked_door_image, (locked_door_x, locked_door_y))  # Display locked door
+
+        for enemy in enemies:
+            screen.blit(enemy_image, (enemy["x"], enemy["y"]))
+
+        # Draw barriers
+        for box in barrier_boxes:
+            pygame.draw.rect(screen, (255, 255, 255), box)
+
+    if game_over:
+        # Display "Game Over" when the player collides with an enemy
+        font = pygame.font.Font(None, 100)
+        game_over_text = font.render("Game Over", True, (255, 0, 0))
+        screen.blit(game_over_text, (screen_width // 2 - 200, screen_height // 2 - 50))
+
+    if well_done:
+        # Display "Well Done" when the player unlocks the door
+        font = pygame.font.Font(None, 100)
+        well_done_text = font.render("Well Done", True, (0, 255, 0))
+        screen.blit(well_done_text, (screen_width // 2 - 200, screen_height // 2 - 50))
+
+    pygame.display.flip()
+    pygame.time.delay(30)
